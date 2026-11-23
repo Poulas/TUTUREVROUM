@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Kurso Driver</title>
+<style>
+/* =========================================================
+   Maquette fictive d'appli chauffeur — accessoire de tournage
+   Réglages : bloc CONFIG dans la balise <script> plus bas.
+   ========================================================= */
+:root{
+  --accent:#4f46e5; --accent2:#7c74ff;
+  --land:#eceff3; --minor:#ffffff; --major:#ffffff; --casing:#d3d8e0; --park:#cfe8cf; --water:#b9d6f2; --label:#7b8494;
+  --sheet:#ffffff; --text:#111318; --muted:#6b7280; --line:#e5e7eb;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+:root[data-theme="dark"]{
+  --land:#1b1f27; --minor:#2a303b; --major:#3a4252; --casing:#14171d; --park:#1f3326; --water:#152a40; --label:#8a93a3;
+  --sheet:#14171d; --text:#f3f4f6; --muted:#9ca3af; --line:#272c35;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--land);color:var(--text);font-family:var(--font);overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+[hidden]{display:none !important}
+
+.phone{position:relative;width:100vw;height:100vh;height:100dvh;overflow:hidden;background:var(--land)}
+@media (min-width:600px){
+  body{display:flex;align-items:center;justify-content:center;background:#cfd3da}
+  .phone{width:390px;height:844px;border-radius:44px;box-shadow:0 0 0 10px #111,0 30px 60px rgba(0,0,0,.35)}
+}
+
+/* ---------- carte ---------- */
+.map{position:absolute;inset:0;transform-origin:50% 66%;transition:transform 1.4s cubic-bezier(.4,0,.2,1)}
+.map.nav{transform:perspective(900px) rotateX(38deg) scale(1.05)}
+.map svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.r-minor{stroke:var(--minor);stroke-width:5;fill:none;stroke-linecap:round}
+.r-casing{stroke:var(--casing);stroke-width:17;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.r-major{stroke:var(--major);stroke-width:14;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.lbl{fill:var(--label);font-size:9px;font-weight:600;letter-spacing:.3px}
+.route-casing{stroke:#2f28b8;stroke-width:12;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.route{stroke:var(--accent2);stroke-width:8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+:root:not([data-theme="dark"]) .route{stroke:var(--accent)}
+:root:not([data-theme="dark"]) .route-casing{stroke:#2a2399}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.4);opacity:.6}100%{transform:scale(2.4);opacity:0}}
+
+/* ---------- haut ---------- */
+.top{position:absolute;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 10px) 14px 0;display:flex;align-items:center;justify-content:space-between;z-index:5;transition:opacity .4s}
+.rbtn{width:46px;height:46px;border-radius:50%;background:var(--sheet);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.online{height:46px;padding:0 20px;border-radius:23px;background:var(--sheet);display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.online i{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.2)}
+.earn{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 66px);background:#111318;color:#fff;border-radius:20px;padding:7px 16px;font-weight:700;font-size:15px;z-index:5;box-shadow:0 2px 10px rgba(0,0,0,.2);transition:opacity .4s}
+.earn small{font-weight:500;opacity:.7;margin-right:6px;font-size:12px}
+
+/* ---------- HUD navigation ---------- */
+.hud{position:absolute;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 8px);z-index:6;transform:translateY(-140%);transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.hud.on{transform:none}
+.hud .ride{background:var(--accent);color:#fff;border-radius:16px 16px 0 0;padding:9px 14px 10px;display:flex;align-items:center;gap:10px}
+.hud .ride .av{width:26px;height:26px;font-size:11px;border:2px solid rgba(255,255,255,.7)}
+.hud .ride b{font-size:13px;letter-spacing:1px;text-transform:uppercase}
+.hud .ride span{margin-left:auto;font-size:13px;opacity:.9;font-variant-numeric:tabular-nums}
+.hud .bar{height:4px;background:rgba(255,255,255,.25)}
+.hud .bar i{display:block;height:100%;width:0;background:#fff;transition:width .3s linear}
+.hud .turn{background:#111318;color:#fff;border-radius:0 0 16px 16px;padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.hud .turn .dist{font-size:28px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.hud .turn .street{font-size:15px;opacity:.85;margin-top:3px}
+
+/* ---------- feuille du bas ---------- */
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--sheet);border-radius:22px 22px 0 0;padding:10px 20px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px rgba(0,0,0,.12)}
+.grab{width:38px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
+.sheet h2{margin:0;font-size:20px;text-align:center}
+.sheet p{margin:4px 0 0;color:var(--muted);text-align:center;font-size:14px}
+.scan{height:3px;border-radius:2px;background:var(--line);margin:16px 0 4px;overflow:hidden;position:relative}
+.scan i{position:absolute;top:0;bottom:0;width:35%;background:var(--accent);border-radius:2px;animation:scan 1.6s ease-in-out infinite}
+@keyframes scan{0%{left:-35%}100%{left:100%}}
+.pick{display:flex;align-items:center;gap:14px}
+.pick .t{flex:1}
+.pick .t b{display:block;font-size:18px}
+.pick .t span{color:var(--muted);font-size:14px}
+.pick .act{width:44px;height:44px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center}
+.eta{display:flex;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+.eta b{color:var(--text);font-size:17px;display:block;font-variant-numeric:tabular-nums}
+
+/* ---------- avatar ---------- */
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;overflow:hidden;position:relative;flex:none;background:linear-gradient(135deg,#f59e0b,#db2777)}
+.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+/* ---------- demande de course ---------- */
+.veil{position:absolute;inset:0;z-index:20;background:rgba(10,12,18,.45);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
+.veil.on{opacity:1;pointer-events:auto}
+.req{width:100%;max-width:350px;background:var(--sheet);border-radius:26px;padding:22px 20px 18px;box-shadow:0 20px 60px rgba(0,0,0,.35);transform:scale(.85) translateY(20px);transition:transform .35s cubic-bezier(.2,1.4,.4,1)}
+.veil.on .req{transform:none}
+.req .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.req .type{font-size:13px;font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:5px 10px;border-radius:12px}
+.req .x{width:34px;height:34px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center}
+.req .who{display:flex;flex-direction:column;align-items:center;text-align:center}
+.req .ring{padding:4px;border-radius:50%;background:conic-gradient(var(--accent) var(--p,100%),var(--line) 0)}
+.req .ring .av{width:92px;height:92px;font-size:34px;border:4px solid var(--sheet)}
+.req .msg{margin-top:12px;font-size:21px;font-weight:800;line-height:1.2}
+.req .msg em{font-style:normal;color:var(--accent)}
+.req .rate{margin-top:4px;color:var(--muted);font-size:14px}
+.req .price{margin-top:10px;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+.legs{margin:14px 0 16px;border-top:1px solid var(--line);padding-top:14px;display:grid;grid-template-columns:18px 1fr;gap:4px 10px;font-size:14px}
+.legs .dot{width:10px;height:10px;border-radius:50%;background:var(--text);margin:4px auto 0}
+.legs .sq{width:10px;height:10px;background:var(--accent);margin:4px auto 0}
+.legs .ln{width:2px;height:14px;background:var(--line);margin:0 auto}
+.legs b{display:block}
+.legs span{color:var(--muted)}
+.accept{position:relative;width:100%;height:58px;border-radius:16px;background:var(--accent);color:#fff;font-size:18px;font-weight:800;overflow:hidden}
+.accept i{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.18);width:100%;transition:width 1s linear}
+.accept span{position:relative}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="map" id="map">
+    <svg id="svg" viewBox="0 0 400 860" preserveAspectRatio="xMidYMid slice">
+      <g id="world"></g>
+    </svg>
+  </div>
+
+  <!-- état "en ligne" -->
+  <div class="top" id="top">
+    <button class="rbtn" id="menu" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button class="online" id="online"><i></i>En ligne</button>
+    <button class="rbtn" aria-label="Sécurité"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-3 7.6-7 9-4-1.4-7-4.8-7-9V6z"/></svg></button>
+  </div>
+  <div class="earn" id="earn"><small>Aujourd'hui</small><span id="earnv"></span></div>
+
+  <!-- HUD navigation -->
+  <div class="hud" id="hud">
+    <div class="ride"><div class="av" id="hudav"></div><b id="hudtitle"></b><span id="hudeta"></span></div>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="turn">
+      <svg id="arrow" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></svg>
+      <div><div class="dist" id="tdist"></div><div class="street" id="tstreet"></div></div>
+    </div>
+  </div>
+
+  <!-- feuille du bas -->
+  <div class="sheet" id="sheet"></div>
+
+  <!-- demande de course -->
+  <div class="veil" id="veil">
+    <div class="req">
+      <div class="head"><span class="type" id="rtype"></span><button class="x" id="decline" aria-label="Refuser"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="who">
+        <div class="ring" id="ring"><div class="av" id="rav"></div></div>
+        <div class="msg" id="rmsg"></div>
+        <div class="rate" id="rrate"></div>
+        <div class="price" id="rprice"></div>
+      </div>
+      <div class="legs" id="rlegs"></div>
+      <button class="accept" id="accept"><i id="timer"></i><span>Accepter</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG — tout ce qui peut changer d'une prise à l'autre.
+   ========================================================= */
+const CONFIG = {
+  theme: "light",              // "light" (jour) ou "dark" (nuit)
+  currency: "CHF",
+  earningsToday: "84,20",
+
+  requestDelay: 5000,          // ms avant que la demande n'apparaisse (0 = seulement au tap sur "En ligne")
+  acceptTimeout: 15,           // secondes du compte à rebours (il se fige à la fin, la demande reste)
+  sound: true,                 // petit bip + vibration à l'arrivée de la demande
+  driveDelay: 2500,            // ms entre "Accepter" et le départ de la voiture (le temps de démarrer)
+  driveDuration: 90000,        // ms pour faire le trajet jusqu'à Gabi sur la carte
+
+  passenger: {
+    name: "Gabi",
+    avatar: "photos/gabi.jpg", // ex. "photos/gabi.jpg" (dossier photos/ à côté de ce fichier)
+    rating: "4,92",
+    trips: 138,
+    price: "27,40",
+    type: "Standard",
+    pickupAddress: "Rue des Vignes 12",
+    pickupEta: "4 min (1,2 km)",
+    dropAddress: "Gare centrale",
+    dropEta: "18 min (9,4 km)"
+  },
+
+  // Noms de rues affichés sur la carte et dans le GPS
+  streets: { start: "Avenue de la Gare", second: "Rue du Lac", third: "Rue des Vignes" }
+};
+
+/* ====================== moteur ====================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+document.documentElement.dataset.theme = CONFIG.theme;
+const P = CONFIG.passenger, ST = CONFIG.streets;
+const avatarHTML = () => `${esc(P.name[0] || "?").toUpperCase()}${P.avatar ? `<img src="${esc(P.avatar)}" alt="">` : ""}`;
+const NS = "http://www.w3.org/2000/svg";
+const world = $("#world");
+function el(tag, attrs, parent = world){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; }
+
+/* ---------- dessin de la carte (inventée) ---------- */
+(function drawMap(){
+  el("rect", { x:-900, y:-900, width:2200, height:2700, fill:"var(--land)" });
+  // eau + parcs
+  el("path", { d:"M-900 -60 C -300 20, 20 -40, 180 40 S 520 120, 1300 30 L1300 -900 L-900 -900 Z", fill:"var(--water)" });
+  el("path", { d:"M140 470 L230 470 L230 610 L140 610 Z", fill:"var(--park)", rx:8 });
+  el("path", { d:"M290 120 L470 120 L470 170 L290 170 Z", fill:"var(--park)" });
+  el("path", { d:"M-300 700 L60 690 L70 900 L-300 920 Z", fill:"var(--park)" });
+  // petites rues, légèrement de biais
+  const g = el("g", { transform:"rotate(-9 200 430)" });
+  for (let x = -800; x <= 1200; x += 62) el("line", { x1:x, y1:-900, x2:x, y2:1800, class:"r-minor" }, g);
+  for (let y = -900; y <= 1800; y += 58) el("line", { x1:-800, y1:y, x2:1200, y2:y, class:"r-minor" }, g);
+  // grands axes
+  const majors = [
+    "M-900 180 L1300 180", "M-900 420 L1300 420", "M-900 650 L1300 650", "M-900 980 L1300 980",
+    "M90 -400 L90 1600", "M250 -400 L250 1600", "M360 -400 L360 1600", "M-80 -400 L-80 1600",
+    "M-600 1100 L700 -150"
+  ];
+  majors.forEach(d => el("path", { d, class:"r-casing" }));
+  majors.forEach(d => el("path", { d, class:"r-major" }));
+  // parking de départ, au bord de l'avenue
+  el("rect", { x:262, y:850, width:84, height:104, rx:6, fill:"var(--major)", stroke:"var(--casing)", "stroke-width":2 });
+  for (let y = 862; y <= 942; y += 16) { el("line", { x1:278, y1:y, x2:298, y2:y, stroke:"var(--casing)", "stroke-width":1.5 }); el("line", { x1:310, y1:y, x2:330, y2:y, stroke:"var(--casing)", "stroke-width":1.5 }); }
+  el("rect", { x:293, y:810, width:22, height:22, rx:5, fill:"#3b6fd8" });
+  const pl = el("text", { x:304, y:826, "text-anchor":"middle", fill:"#fff", "font-size":"15", "font-weight":"800" }); pl.textContent = "P";
+  // noms de rues
+  const lab = (t, x, y, r=0) => { const e = el("text", { x, y, class:"lbl", transform:`rotate(${r} ${x} ${y})`, "text-anchor":"middle" }); e.textContent = t; };
+  lab(ST.start, 262, 760, 90); lab(ST.second, 170, 413); lab(ST.third, 82, 300, -90);
+  lab("Quai du Rhône", 200, 173); lab("Bd des Alpes", 300, 643); lab("Rue Centrale", 372, 330, 90);
+  lab("Parc", 185, 545);
+})();
+
+// trajet : voiture -> prise en charge (sur les grands axes)
+// départ devant le parking, longue ligne droite sur l'avenue avant le 1er virage
+const routeD = "M250 905 L250 420 L90 420 L90 240";
+const TURNS = [ // distance (unités carte) où a lieu chaque virage
+  { at:485, dir:"left",  street:ST.second },
+  { at:645, dir:"right", street:ST.third },
+  { at:825, dir:"arrive", street:P.pickupAddress }
+];
+const M_PER_UNIT = 1.45;
+const routeCasing = el("path", { d:routeD, class:"route-casing", opacity:0 });
+const route = el("path", { d:routeD, class:"route", opacity:0 });
+const LEN = route.getTotalLength();
+
+// point de prise en charge
+const pickup = el("g", { transform:"translate(90 240)" });
+el("circle", { r:16, fill:"var(--accent)", class:"pulse", opacity:0 }, pickup);
+el("circle", { r:11, fill:"#fff", stroke:"var(--accent)", "stroke-width":5 }, pickup);
+pickup.style.opacity = 0; pickup.style.transition = "opacity .6s";
+
+// voiture (flèche de navigation)
+const car = el("g", {});
+el("circle", { r:26, fill:"var(--accent)", opacity:.15, class:"pulse" }, car);
+el("circle", { r:15, fill:"#fff", stroke:"rgba(0,0,0,.15)", "stroke-width":1 }, car);
+el("path", { d:"M0 -9 L7 7 L0 3.5 L-7 7 Z", fill:"var(--accent)" }, car);
+
+/* ---------- caméra ---------- */
+const cam = { x:220, y:590, rot:0, s:1, ax:200, ay:430 };
+let camFrom = null, camT0 = 0, follow = false;
+const pos = { d:0, x:250, y:905, h:0 };
+function pointAt(d){ const p = route.getPointAtLength(Math.max(0, Math.min(LEN, d))); return { x:p.x, y:p.y }; }
+function headingAt(d){ const a = pointAt(Math.min(LEN, d + 2)), b = pointAt(Math.max(0, d - 2)); return Math.atan2(a.x - b.x, -(a.y - b.y)) * 180 / Math.PI; }
+function render(){
+  world.setAttribute("transform", `translate(${cam.ax} ${cam.ay}) scale(${cam.s}) rotate(${-cam.rot}) translate(${-cam.x} ${-cam.y})`);
+  car.setAttribute("transform", `translate(${pos.x} ${pos.y}) rotate(${pos.h})`);
+}
+render();
+
+/* ---------- interface ---------- */
+$("#earnv").textContent = `${CONFIG.currency} ${CONFIG.earningsToday}`;
+const sheet = $("#sheet");
+function sheetIdle(){
+  sheet.innerHTML = `<div class="grab"></div><h2>Vous êtes en ligne</h2><p>Recherche de courses à proximité…</p><div class="scan"><i></i></div>`;
+}
+function sheetPickup(){
+  sheet.innerHTML = `<div class="grab"></div>
+    <div class="pick"><div class="av" style="width:52px;height:52px;font-size:20px">${avatarHTML()}</div>
+      <div class="t"><b>Prise en charge de ${esc(P.name)}</b><span>${esc(P.pickupAddress)}</span></div>
+      <button class="act"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg></button>
+      <button class="act"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/></svg></button></div>
+    <div class="eta"><div><b id="seta"></b>arrivée</div><div style="text-align:center"><b id="smin"></b>restant</div><div style="text-align:right"><b id="skm"></b>distance</div></div>`;
+}
+const ARROWS = {
+  straight:'<path d="M12 20V5M6 11l6-6 6 6"/>',
+  left:'<path d="M17 20v-7a4 4 0 0 0-4-4H5M9 5L5 9l4 4"/>',
+  right:'<path d="M7 20v-7a4 4 0 0 1 4-4h8M15 5l4 4-4 4"/>',
+  arrive:'<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>'
+};
+const fmtDist = m => m >= 1000 ? (m/1000).toFixed(1).replace(".", ",") + " km" : (m < 30 ? "0 m" : Math.round(m/10)*10 + " m");
+function updateHUD(){
+  const next = TURNS.find(t => t.at > pos.d + 0.5) || TURNS[TURNS.length - 1];
+  const toTurn = Math.max(0, next.at - pos.d) * M_PER_UNIT;
+  const left = (LEN - pos.d) * M_PER_UNIT;
+  const totalMin = 4, minLeft = Math.max(1, Math.ceil(totalMin * (LEN - pos.d) / LEN));
+  $("#arrow").innerHTML = ARROWS[next.dir];
+  $("#tdist").textContent = fmtDist(toTurn);
+  $("#tstreet").textContent = next.dir === "arrive" ? (pos.d >= LEN - 1 ? `Vous êtes arrivé · ${P.pickupAddress}` : `Prise en charge · ${next.street}`) : `${next.dir === "left" ? "Tournez à gauche" : "Tournez à droite"} · ${next.street}`;
+  $("#prog").style.width = (pos.d / LEN * 100) + "%";
+  $("#hudeta").textContent = `${minLeft} min · ${fmtDist(left)}`;
+  const arr = new Date(Date.now() + minLeft * 60000);
+  if ($("#seta")) { $("#seta").textContent = arr.toTimeString().slice(0,5); $("#smin").textContent = `${minLeft} min`; $("#skm").textContent = fmtDist(left); }
+}
+
+/* ---------- 1. demande de course ---------- */
+let state = "idle", reqTimer, countdown, requestTO;
+function beep(){
+  if (!CONFIG.sound) return;
+  try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch(e){}
+  try {
+    const ac = beep.ac || (beep.ac = new (window.AudioContext || window.webkitAudioContext)());
+    [0, .18, .36].forEach((t, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = i === 2 ? 1175 : 880; o.connect(g); g.connect(ac.destination);
+      g.gain.setValueAtTime(0, ac.currentTime + t); g.gain.linearRampToValueAtTime(.25, ac.currentTime + t + .02); g.gain.linearRampToValueAtTime(0, ac.currentTime + t + .15);
+      o.start(ac.currentTime + t); o.stop(ac.currentTime + t + .16); });
+  } catch(e){}
+}
+function showRequest(){
+  if (state !== "idle") return;
+  state = "request";
+  clearTimeout(requestTO);
+  $("#rtype").textContent = P.type;
+  $("#rav").innerHTML = avatarHTML();
+  $("#rmsg").innerHTML = `<em>${esc(P.name.toUpperCase())}</em> aimerait effectuer une course`;
+  $("#rrate").textContent = `★ ${P.rating} · ${P.trips} courses`;
+  $("#rprice").textContent = `${CONFIG.currency} ${P.price}`;
+  $("#rlegs").innerHTML = `<div class="dot"></div><div><b>${esc(P.pickupEta)}</b><span>${esc(P.pickupAddress)}</span></div>
+    <div class="ln"></div><div></div>
+    <div class="sq"></div><div><b>${esc(P.dropEta)}</b><span>${esc(P.dropAddress)}</span></div>`;
+  $("#veil").classList.add("on");
+  beep();
+  let left = CONFIG.acceptTimeout;
+  const tick = () => {
+    $("#timer").style.width = (left / CONFIG.acceptTimeout * 100) + "%";
+    $("#ring").style.setProperty("--p", (left / CONFIG.acceptTimeout * 100) + "%");
+    if (left > 1) left--; // se fige à 1 s : la demande ne disparaît jamais pendant une prise
+  };
+  $("#timer").style.transition = "none"; $("#timer").style.width = "100%";
+  requestAnimationFrame(() => { $("#timer").style.transition = ""; tick(); });
+  countdown = setInterval(tick, 1000);
+}
+function hideRequest(){ clearInterval(countdown); $("#veil").classList.remove("on"); }
+
+/* ---------- 2. course acceptée : trajet + GPS ---------- */
+function accept(){
+  if (state !== "request") return;
+  state = "nav";
+  hideRequest();
+  try { navigator.vibrate && navigator.vibrate(60); } catch(e){}
+  $("#top").style.opacity = 0; $("#earn").style.opacity = 0;
+  $("#top").style.pointerEvents = "none";
+  $("#hudav").innerHTML = avatarHTML();
+  $("#hudtitle").textContent = `Course de ${P.name}`;
+  sheetPickup(); updateHUD();
+  // le trajet se dessine
+  [route, routeCasing].forEach(p => { p.style.transition = "none"; p.setAttribute("opacity", 1); p.style.strokeDasharray = LEN; p.style.strokeDashoffset = LEN; });
+  pickup.style.opacity = 1; pickup.querySelector(".pulse").setAttribute("opacity", .5);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    [route, routeCasing].forEach(p => { p.style.transition = "stroke-dashoffset 1.6s ease-in-out"; p.style.strokeDashoffset = 0; });
+  }));
+  // la caméra passe en mode GPS (vue inclinée qui suit la voiture)
+  setTimeout(() => {
+    $("#hud").classList.add("on");
+    $("#map").classList.add("nav");
+    camFrom = { ...cam }; camT0 = performance.now(); follow = true;
+  }, 1500);
+  setTimeout(startDrive, 1500 + CONFIG.driveDelay);
+  requestAnimationFrame(loop);
+}
+let driveT0 = 0, driving = false;
+function startDrive(){ driving = true; driveT0 = performance.now(); }
+function loop(now){
+  if (driving) {
+    const t = Math.min(1, (now - driveT0) / CONFIG.driveDuration);
+    pos.d = t * LEN;
+    const p = pointAt(pos.d); pos.x = p.x; pos.y = p.y;
+    // la flèche tourne en douceur dans les virages
+    let target = headingAt(pos.d), diff = ((target - pos.h + 540) % 360) - 180;
+    pos.h += diff * 0.08;
+    // on efface la partie déjà parcourue
+    [route, routeCasing].forEach(r => { r.style.transition = "none"; r.style.strokeDasharray = `${LEN} ${LEN}`; r.style.strokeDashoffset = -pos.d; });
+    if (t >= 1) driving = false;
+  }
+  if (follow) {
+    const goal = { x:pos.x, y:pos.y, rot:pos.h, s:1.55, ax:200, ay:520 };
+    const k = Math.min(1, (now - camT0) / 1400), e = k < .5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2) / 2;
+    for (const key in goal) cam[key] = k < 1 ? camFrom[key] + (goal[key] - camFrom[key]) * e : goal[key];  }
+  updateHUD();
+  render();
+  if (state === "nav") requestAnimationFrame(loop);
+}
+
+/* ---------- commandes ---------- */
+$("#accept").onclick = accept;
+$("#decline").onclick = () => { hideRequest(); state = "idle"; if (CONFIG.requestDelay) requestTO = setTimeout(showRequest, CONFIG.requestDelay); };
+$("#online").onclick = showRequest;                     // tap sur "En ligne" = la demande arrive tout de suite
+// appui long (1,5 s) sur le menu = tout recommencer
+let pressTO;
+$("#menu").addEventListener("pointerdown", () => pressTO = setTimeout(() => location.reload(), 1500));
+["pointerup","pointerleave"].forEach(ev => $("#menu").addEventListener(ev, () => clearTimeout(pressTO)));
+// garder l'écran allumé pendant la prise (au premier tap)
+document.addEventListener("pointerdown", async function wl(){ try { await navigator.wakeLock?.request("screen"); } catch(e){} document.removeEventListener("pointerdown", wl); });
+
+sheetIdle();
+if (CONFIG.requestDelay) requestTO = setTimeout(showRequest, CONFIG.requestDelay);
+</script>
+</body>
+</html>
